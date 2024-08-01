@@ -1,61 +1,23 @@
 # QR Code Generator
 
 ## Description
-
-QR Code Generator is a versatile and user-friendly desktop application that allows users to create QR codes for various purposes. Built with Python and Tkinter, this application provides an intuitive interface for generating QR codes across multiple categories.
+A simple PyQt5 application to generate QR codes for various categories like personal information, contact details, and more.
 
 ## Features
-
-- Generate QR codes for:
-  - Personal Information
-  - Contact Details
-  - Social Media Profiles
-  - Website URLs
-  - Wi-Fi Network Details
-  - Event Information
-- User-friendly interface with category-specific input fields
-- Input validation to ensure data integrity
-- Option to download QR codes as PNG or PDF files
-- About page with application information
+- Generate QR codes for different data types
+- Save QR codes as PNG or PDF
+- User-friendly GUI
 
 ## Installation
-
-1. Clone the repository:
-   ```
-   git clone https://github.com/kylesinlynn/qr-code-generator.git
-   ```
-
-2. Navigate to the project directory:
-   ```
-   cd qr-code-generator
-   ```
-
-3. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
-   ```
+Download the executable from the [releases page](https://github.com/kylesinlynn/qrcode-generator/releases).
 
 ## Usage
+1. Select a category.
+2. Fill in the required information.
+3. Generate the QR code and save it as needed.
 
-1. Run the application:
-   ```
-   python main.py
-   ```
-
-2. Select a category from the dropdown menu.
-3. Fill in the required information in the input fields.
-4. Click "Generate QR Code" to create your QR code.
-5. Use the "Download PNG" or "Download PDF" buttons to save your QR code.
-
-## Dependencies
-
-- tkinter
-- qrcode
-- Pillow
-- reportlab
-- tkcalendar
-
-For specific version requirements, please refer to the `requirements.txt` file.
+## Contact
+For issues or suggestions, please contact [kylesinlynn@gmail.com](mailto:kylesinlynn@gmail.com).
 
 ## Building Executable
 

@@ -1,30 +1,55 @@
-import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
+import sys
 import qrcode
-from PIL import Image, ImageTk
+from PIL import Image
 import io
+import os
+from PyQt5.QtWidgets import (
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QComboBox, 
+    QPushButton, QFileDialog, QMessageBox, QTabWidget, QFormLayout
+)
+from PyQt5.QtGui import QPixmap
+from PyQt5.QtCore import Qt
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
-import os
 import re
 from datetime import datetime
-import sys
-from tkcalendar import DateEntry
 
-class QRGeneratorApp:
-    def __init__(self, master):
-        self.master = master
-        self.master.title("QR Code Generator")
-        self.master.geometry("600x700")  # Increased height to accommodate QR code
-        self.master.configure(bg="#f0f0f0")
+class QRGeneratorApp(QWidget):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("QR Code Generator")
+        self.setGeometry(100, 100, 600, 700)
+        self.setStyleSheet("background-color: #f0f0f0;")
 
-        self.style = ttk.Style()
-        self.style.theme_use("clam")
-        self.style.configure("TButton", padding=10, relief="flat", background="#4CAF50", foreground="white")
-        self.style.configure("TLabel", background="#f0f0f0", font=("Arial", 12))
-        self.style.configure("TEntry", padding=5)
+        self.qr_image = None
+        self.create_widgets()
 
+    def create_widgets(self):
+        main_layout = QVBoxLayout()
+        tab_widget = QTabWidget()
+
+        # Main tab
+        self.main_tab = QWidget()
+        self.main_layout = QVBoxLayout()
+        self.main_tab.setLayout(self.main_layout)
+        tab_widget.addTab(self.main_tab, "Generate QR")
+
+        # About tab
+        self.about_tab = QWidget()
+        about_layout = QVBoxLayout()
+        self.about_tab.setLayout(about_layout)
+        tab_widget.addTab(self.about_tab, "About")
+        self.create_about_page()
+
+        # Add tab widget to main layout
+        main_layout.addWidget(tab_widget)
+        self.setLayout(main_layout)
+
+        # Category selection
+        self.category_label = QLabel("Select Category:")
+        self.category_dropdown = QComboBox()
         self.categories = [
+            "Select One",  # Placeholder item
             "Personal Information",
             "Contact Details",
             "Social Media",
@@ -32,58 +57,51 @@ class QRGeneratorApp:
             "Wi-Fi Network",
             "Event Details"
         ]
+        self.category_dropdown.addItems(self.categories)
+        
+        # Disable the first item
+        self.category_dropdown.setItemData(0, Qt.ItemDataRole.DisplayRole, Qt.ItemDataRole.UserRole)
+        self.category_dropdown.setItemData(0, Qt.ItemDataRole.BackgroundRole, Qt.gray)
+        self.category_dropdown.setItemData(0, Qt.ItemDataRole.TextColorRole, Qt.gray)
+        
+        # Set placeholder item
+        self.category_dropdown.setCurrentIndex(0)
 
-        self.qr_image = None
-        self.create_widgets()
+        self.category_dropdown.currentIndexChanged.connect(self.update_input_fields)
 
-    def create_widgets(self):
-        # Notebook for tabs
-        self.notebook = ttk.Notebook(self.master)
-        self.notebook.pack(expand=True, fill="both")
-
-        # Main tab
-        self.main_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.main_frame, text="Generate QR")
-
-        # Category selection
-        ttk.Label(self.main_frame, text="Select Category:").pack(pady=10)
-        self.category_var = tk.StringVar()
-        self.category_dropdown = ttk.Combobox(self.main_frame, textvariable=self.category_var, values=self.categories, state="readonly")
-        self.category_dropdown.pack(pady=5)
-        self.category_dropdown.bind("<<ComboboxSelected>>", self.update_input_fields)
+        self.main_layout.addWidget(self.category_label)
+        self.main_layout.addWidget(self.category_dropdown)
 
         # Input frame
-        self.input_frame = ttk.Frame(self.main_frame, padding="10")
-        self.input_frame.pack(pady=10, fill="x", padx=20)
+        self.input_frame = QFormLayout()
+        self.main_layout.addLayout(self.input_frame)
 
         # QR Code display
-        self.qr_frame = ttk.Frame(self.main_frame)
-        self.qr_frame.pack(pady=10, expand=True, fill="both")  # Allow QR frame to expand
-        self.qr_label = ttk.Label(self.qr_frame)
-        self.qr_label.pack(expand=True)  # Center the QR code vertically
+        self.qr_label = QLabel()
+        self.qr_label.setAlignment(Qt.AlignCenter)
+        self.main_layout.addWidget(self.qr_label)
 
         # Generate button
-        self.generate_button = ttk.Button(self.main_frame, text="Generate QR Code", command=self.generate_qr)
-        self.generate_button.pack(pady=10)
+        self.generate_button = QPushButton("Generate QR Code")
+        self.generate_button.clicked.connect(self.generate_qr)
+        self.main_layout.addWidget(self.generate_button)
 
         # Download buttons
-        self.download_frame = ttk.Frame(self.main_frame)
-        self.download_frame.pack(pady=10)
-        self.download_png_button = ttk.Button(self.download_frame, text="Download PNG", command=lambda: self.download_png("qr_code.png"))
-        self.download_png_button.pack(side=tk.LEFT, padx=5)
-        self.download_pdf_button = ttk.Button(self.download_frame, text="Download PDF", command=lambda: self.download_pdf("qr_code.pdf"))
-        self.download_pdf_button.pack(side=tk.LEFT, padx=5)
+        download_layout = QHBoxLayout()
+        self.download_png_button = QPushButton("Download PNG")
+        self.download_png_button.clicked.connect(self.download_png)
+        self.download_pdf_button = QPushButton("Download PDF")
+        self.download_pdf_button.clicked.connect(self.download_pdf)
+        download_layout.addWidget(self.download_png_button)
+        download_layout.addWidget(self.download_pdf_button)
+        self.main_layout.addLayout(download_layout)
 
-        # About tab
-        self.about_frame = ttk.Frame(self.notebook)
-        self.notebook.add(self.about_frame, text="About")
-        self.create_about_page()
 
     def create_about_page(self):
         about_text = """
         QR Code Generator
 
-        Version: 1.0
+        Version: 2.0
         
         This application allows you to generate QR codes for various purposes,
         including personal information, contact details, social media profiles,
@@ -92,124 +110,185 @@ class QRGeneratorApp:
         Created by: Kyle Sin Lynn (@kylesinlynn)
         GitHub: https://github.com/kylesinlynn
         """
-        about_label = ttk.Label(self.about_frame, text=about_text, wraplength=500, justify="center")
-        about_label.pack(expand=True, fill="both", padx=20, pady=20)
+        about_label = QLabel(about_text)
+        about_label.setWordWrap(True)
+        about_label.setAlignment(Qt.AlignCenter)
+        self.about_tab.layout().addWidget(about_label)
 
-    def update_input_fields(self, event=None):
-        for widget in self.input_frame.winfo_children():
-            widget.destroy()
-
-        category = self.category_var.get()
-        self.input_fields = {}
-
-        if category == "Personal Information":
-            fields = [("Name", self.validate_name), ("Date of Birth", self.validate_date), ("Address", self.validate_address)]
-        elif category == "Contact Details":
-            fields = [("Name", self.validate_name), ("Phone", self.validate_phone), ("Email", self.validate_email)]
-        elif category == "Social Media":
-            fields = [("Platform", self.validate_platform), ("Username", self.validate_username)]
-        elif category == "Website URL":
-            fields = [("URL", self.validate_url)]
-        elif category == "Wi-Fi Network":
-            fields = [("SSID", self.validate_ssid), ("Password", self.validate_password), ("Security Type", self.validate_security_type)]
-        elif category == "Event Details":
-            fields = [("Event Name", self.validate_event_name), ("Date", self.validate_date), ("Time", self.validate_time), ("Location", self.validate_location)]
-
-        for field, validator in fields:
-            ttk.Label(self.input_frame, text=field).pack(anchor="w")
-            if field == "Date of Birth":
-                entry = DateEntry(self.input_frame, width=12, background='darkblue', foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
-            else:
-                entry = ttk.Entry(self.input_frame, width=40, validate="focusout", validatecommand=(self.master.register(validator), '%P'))
-            entry.pack(pady=5, fill="x")
-            self.input_fields[field] = entry
-
-    def generate_qr(self):
-        category = self.category_var.get()
-        if not category:
-            messagebox.showerror("Error", "Please select a category")
+    def update_input_fields(self):
+        category_index = self.category_dropdown.currentIndex()
+        
+        # Skip updating if the placeholder item is selected
+        if category_index == 0:
             return
 
+        # Clear previous input fields
+        while self.input_frame.count() > 0:
+            item = self.input_frame.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        category = self.category_dropdown.currentText()
+        self.input_fields = {}
+
+        fields = {
+            "Personal Information": [("Name", self.validate_name), ("Date of Birth", self.validate_date), ("Address", self.validate_address)],
+            "Contact Details": [("Name", self.validate_name), ("Phone", self.validate_phone), ("Email", self.validate_email)],
+            "Social Media": [("Platform", self.validate_platform), ("Username", self.validate_username)],
+            "Website URL": [("URL", self.validate_url)],
+            "Wi-Fi Network": [("SSID", self.validate_ssid), ("Password", self.validate_password), ("Security Type", self.validate_security_type)],
+            "Event Details": [("Event Name", self.validate_event_name), ("Date", self.validate_date), ("Time", self.validate_time), ("Location", self.validate_location)]
+        }
+
+        for field, validator in fields.get(category, []):
+            self.input_frame.addRow(QLabel(field), self.create_input_widget(field, validator))
+
+
+    def generate_qr(self):
+        if not self.validate_fields():
+            return
+
+        category = self.category_dropdown.currentText()
         data = ""
-        for field, entry in self.input_fields.items():
-            if isinstance(entry, DateEntry):
-                value = entry.get_date().strftime('%Y-%m-%d')
+
+        for i in range(self.input_frame.rowCount()):
+            label_item = self.input_frame.itemAt(i, QFormLayout.LabelRole)
+            field_item = self.input_frame.itemAt(i, QFormLayout.FieldRole)
+
+            # Check if label_item and field_item are not None
+            if label_item and field_item:
+                label_widget = label_item.widget()
+                field_widget = field_item.widget()
+                
+                if field_widget:
+                    value = field_widget.text().strip()
+                    if not value:
+                        QMessageBox.warning(self, "Error", "Please fill in all fields")
+                        return
+                    field_label = label_widget.text() if label_widget else "Unknown Field"
+                    data += f"{field_label}: {value}\n"
             else:
-                value = entry.get().strip()
-            if not value:
-                messagebox.showerror("Error", f"Please fill in the {field} field")
-                return
-            data += f"{field}: {value}\n"
+                print(f"Warning: Label item or Field item at index {i} is None.")
 
-        qr = qrcode.QRCode(version=1, box_size=10, border=5)
-        qr.add_data(data)
-        qr.make(fit=True)
-        qr_image = qr.make_image(fill_color="black", back_color="white")
+        try:
+            qr = qrcode.QRCode(version=1, box_size=10, border=5)
+            qr.add_data(data)
+            qr.make(fit=True)
+            qr_image = qr.make_image(fill='black', back_color='white')
 
-        # Apply a smooth gradient background
-        background = Image.new('RGB', qr_image.size, (255, 255, 255))
-        for y in range(background.height):
-            for x in range(background.width):
-                r = int(255 * (1 - y / background.height))
-                g = int(200 * (1 - y / background.height))
-                b = int(255 * (1 - y / background.height))
-                background.putpixel((x, y), (r, g, b))
+            # Apply a smooth gradient background
+            background = Image.new('RGB', qr_image.size, (255, 255, 255))
+            for y in range(background.height):
+                for x in range(background.width):
+                    r = int(255 * (1 - y / background.height))
+                    g = int(200 * (1 - y / background.height))
+                    b = int(255 * (1 - y / background.height))
+                    background.putpixel((x, y), (r, g, b))
 
-        # Blend QR code with background
-        qr_image = qr_image.convert("RGBA")
-        background.paste(qr_image, (0, 0), qr_image)
+            qr_image = qr_image.convert("RGBA")
+            background.paste(qr_image, (0, 0), qr_image)
 
-        self.qr_image = background
+            self.qr_image = background
 
-        # Display the QR code
-        photo = ImageTk.PhotoImage(self.qr_image)
-        self.qr_label.config(image=photo)
-        self.qr_label.image = photo
+            # Display the QR code
+            with io.BytesIO() as buffer:
+                self.qr_image.save(buffer, format="PNG")
+                buffer.seek(0)
+                pixmap = QPixmap()
+                pixmap.loadFromData(buffer.getvalue())
+                if pixmap.isNull():
+                    QMessageBox.warning(self, "Error", "Failed to load QR code image.")
+                else:
+                    self.qr_label.setPixmap(pixmap)
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"An error occurred while generating the QR code: {str(e)}")
+
+
+
+    def create_input_widget(self, field, validator):
+        entry = QLineEdit()
+        if field == "Date of Birth":
+            entry.setPlaceholderText("YYYY-MM-DD")
+        entry.setObjectName(field)
+        return entry
+
+    def validate_fields(self):
+        category = self.category_dropdown.currentText()
+        fields = {
+            "Personal Information": [("Name", self.validate_name), ("Date of Birth", self.validate_date), ("Address", self.validate_address)],
+            "Contact Details": [("Name", self.validate_name), ("Phone", self.validate_phone), ("Email", self.validate_email)],
+            "Social Media": [("Platform", self.validate_platform), ("Username", self.validate_username)],
+            "Website URL": [("URL", self.validate_url)],
+            "Wi-Fi Network": [("SSID", self.validate_ssid), ("Password", self.validate_password), ("Security Type", self.validate_security_type)],
+            "Event Details": [("Event Name", self.validate_event_name), ("Date", self.validate_date), ("Time", self.validate_time), ("Location", self.validate_location)]
+        }
+
+        for i in range(self.input_frame.rowCount()):
+            label_item = self.input_frame.itemAt(i, QFormLayout.LabelRole)
+            field_item = self.input_frame.itemAt(i, QFormLayout.FieldRole)
+
+            if label_item and field_item:
+                label_widget = label_item.widget()
+                field_widget = field_item.widget()
+
+                if field_widget:
+                    field_label = label_widget.text() if label_widget else "Unknown Field"
+                    value = field_widget.text().strip()
+                    validator = next((v for f, v in fields.get(category, []) if f == field_label), None)
+                    if validator and not validator(value):
+                        return False
+            else:
+                print(f"Warning: Label item or Field item at index {i} is None.")
+        return True
 
     def download_png(self):
         if self.qr_image is None:
-            messagebox.showerror("Error", "Please generate a QR code first")
+            QMessageBox.warning(self, "Error", "Please generate a QR code first")
             return
 
-        file_path = filedialog.asksaveasfilename(defaultextension=".png", filetypes=[("PNG files", "*.png")])
+        # Default filename with date and time
+        default_filename = f"qrcode_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save PNG", default_filename, "PNG files (*.png)")
         if file_path:
             self.qr_image.save(file_path, "PNG")
-            messagebox.showinfo("Success", f"QR code saved as PNG: {file_path}")
+            QMessageBox.information(self, "Success", f"QR code saved as PNG: {file_path}")
 
     def download_pdf(self):
         if self.qr_image is None:
-            messagebox.showerror("Error", "Please generate a QR code first")
+            QMessageBox.warning(self, "Error", "Please generate a QR code first")
             return
 
-        file_path = filedialog.asksaveasfilename(defaultextension=".pdf", filetypes=[("PDF files", "*.pdf")])
+        # Default filename with date and time
+        default_filename = f"qrcode_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        file_path, _ = QFileDialog.getSaveFileName(self, "Save PDF", default_filename, "PDF files (*.pdf)")
         if file_path:
-            # Create a PDF with the QR code
             c = canvas.Canvas(file_path, pagesize=letter)
             qr_width, qr_height = self.qr_image.size
             page_width, page_height = letter
 
-            # Calculate position to center the QR code
             x = (page_width - qr_width) / 2
             y = (page_height - qr_height) / 2
 
-            # Save QR image to a temporary file
             temp_image_path = "temp_qr.png"
             self.qr_image.save(temp_image_path, "PNG")
 
-            # Draw the QR code on the PDF
             c.drawImage(temp_image_path, x, y, width=qr_width, height=qr_height)
             c.save()
 
-            # Remove the temporary file
             os.remove(temp_image_path)
 
-            messagebox.showinfo("Success", f"QR code saved as PDF: {file_path}")
+            QMessageBox.information(self, "Success", f"QR code saved as PDF: {file_path}")
 
     # Validation methods
     def validate_name(self, value):
         if re.match(r'^[A-Za-z\s]{2,50}$', value):
             return True
-        messagebox.showerror("Invalid Input", "Name should contain only letters and spaces, 2-50 characters long.")
+
+    # Validation methods
+    def validate_name(self, value):
+        if re.match(r'^[A-Za-z\s]{2,50}$', value):
+            return True
+        QMessageBox.warning(self, "Invalid Input", "Name should contain only letters and spaces, 2-50 characters long.")
         return False
 
     def validate_date(self, value):
@@ -217,94 +296,85 @@ class QRGeneratorApp:
             datetime.strptime(value, '%Y-%m-%d')
             return True
         except ValueError:
-            messagebox.showerror("Invalid Input", "Date should be in YYYY-MM-DD format.")
+            QMessageBox.warning(self, "Invalid Input", "Date should be in YYYY-MM-DD format.")
             return False
 
     def validate_address(self, value):
         if 5 <= len(value) <= 100:
             return True
-        messagebox.showerror("Invalid Input", "Address should be 5-100 characters long.")
+        QMessageBox.warning(self, "Invalid Input", "Address should be 5-100 characters long.")
         return False
 
     def validate_phone(self, value):
         if re.match(r'^\+?1?\d{9,15}$', value):
             return True
-        messagebox.showerror("Invalid Input", "Phone number should be 9-15 digits, optionally starting with +.")
+        QMessageBox.warning(self, "Invalid Input", "Phone number should be 9-15 digits, optionally starting with +.")
         return False
 
     def validate_email(self, value):
         if re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', value):
             return True
-        messagebox.showerror("Invalid Input", "Please enter a valid email address.")
+        QMessageBox.warning(self, "Invalid Input", "Please enter a valid email address.")
         return False
 
     def validate_platform(self, value):
         valid_platforms = ['Facebook', 'Twitter', 'Instagram', 'LinkedIn', 'TikTok']
         if value in valid_platforms:
             return True
-        messagebox.showerror("Invalid Input", f"Platform should be one of: {', '.join(valid_platforms)}")
+        QMessageBox.warning(self, "Invalid Input", f"Platform should be one of: {', '.join(valid_platforms)}")
         return False
 
     def validate_username(self, value):
         if re.match(r'^[a-zA-Z0-9_]{3,30}$', value):
             return True
-        messagebox.showerror("Invalid Input", "Username should be 3-30 characters, containing only letters, numbers, and underscores.")
+        QMessageBox.warning(self, "Invalid Input", "Username should be 3-30 characters, containing only letters, numbers, and underscores.")
         return False
 
     def validate_url(self, value):
         if re.match(r'^https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$', value):
             return True
-        messagebox.showerror("Invalid Input", "Please enter a valid URL starting with http:// or https://")
+        QMessageBox.warning(self, "Invalid Input", "Please enter a valid URL starting with http:// or https://")
         return False
 
     def validate_ssid(self, value):
         if 1 <= len(value) <= 32:
             return True
-        messagebox.showerror("Invalid Input", "SSID should be 1-32 characters long.")
+        QMessageBox.warning(self, "Invalid Input", "SSID should be 1-32 characters long.")
         return False
 
     def validate_password(self, value):
         if 8 <= len(value) <= 63:
             return True
-        messagebox.showerror("Invalid Input", "Wi-Fi password should be 8-63 characters long.")
+        QMessageBox.warning(self, "Invalid Input", "Wi-Fi password should be 8-63 characters long.")
         return False
 
     def validate_security_type(self, value):
         valid_types = ['WEP', 'WPA', 'WPA2', 'WPA3']
         if value in valid_types:
             return True
-        messagebox.showerror("Invalid Input", f"Security type should be one of: {', '.join(valid_types)}")
+        QMessageBox.warning(self, "Invalid Input", f"Security type should be one of: {', '.join(valid_types)}")
         return False
 
     def validate_event_name(self, value):
         if 3 <= len(value) <= 50:
             return True
-        messagebox.showerror("Invalid Input", "Event name should be 3-50 characters long.")
+        QMessageBox.warning(self, "Invalid Input", "Event name should be 3-50 characters long.")
         return False
 
     def validate_time(self, value):
         if re.match(r'^([01]?[0-9]|2[0-3]):[0-5][0-9]$', value):
             return True
-        messagebox.showerror("Invalid Input", "Time should be in HH:MM format (24-hour).")
+        QMessageBox.warning(self, "Invalid Input", "Time should be in HH:MM format (24-hour).")
         return False
 
     def validate_location(self, value):
         if 5 <= len(value) <= 100:
             return True
-        messagebox.showerror("Invalid Input", "Location should be 5-100 characters long.")
+        QMessageBox.warning(self, "Invalid Input", "Location should be 5-100 characters long.")
         return False
 
-def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
-        base_path = os.path.abspath(".")
-
-    return os.path.join(base_path, relative_path)
-
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = QRGeneratorApp(root)
-    root.mainloop()
+    app = QApplication(sys.argv)
+    window = QRGeneratorApp()
+    window.show()
+    sys.exit(app.exec_())
