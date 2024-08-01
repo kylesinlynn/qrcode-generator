@@ -1,0 +1,6 @@
+# tkinter  # This is typically included with Python, so no version is needed
+qrcode==7.4.2
+Pillow==10.0.0
+reportlab==4.0.4
+pyinstaller==5.13.0  # For creating standalone executables
+tkcalendar==1.6.1  # Adding tkcalendar package with specific version
